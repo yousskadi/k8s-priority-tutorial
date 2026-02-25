@@ -27,7 +27,7 @@ spec:
     borrowingLimitPercent: 25
 
     # Prête peu → garde ses seats pour lui
-    lendingLimitPercent: 10
+    lendablePercent: 10
 
     limitResponse:
       type: Queue
@@ -52,7 +52,7 @@ spec:
     nominalConcurrencyShares: 20
 
     borrowingLimitPercent: 15
-    lendingLimitPercent: 30  # Prête plus — staging peut céder ses seats
+    lendablePercent: 30  # Prête plus — staging peut céder ses seats
 
     limitResponse:
       type: Queue
@@ -81,7 +81,7 @@ spec:
     borrowingLimitPercent: 20
 
     # Prête la majorité de ses seats quand non utilisés
-    lendingLimitPercent: 80
+    lendablePercent: 80
 
     limitResponse:
       type: Queue

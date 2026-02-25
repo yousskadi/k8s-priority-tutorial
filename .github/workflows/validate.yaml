@@ -8,10 +8,14 @@ name: Validate Manifests
 
 on:
   push:
-    branches: ["**"]
+    branches: ["**"]        # toutes les branches, y compris feature/*
+    paths:
+      - "**/*.yaml"
+      - "**/*.yml"
+      - ".github/workflows/*.yaml"
   pull_request:
     branches: ["main", "develop"]
-
+    
 jobs:
   # ─── Job 1 : Lint YAML ───────────────────────────────────────
   yaml-lint:
@@ -104,20 +108,16 @@ jobs:
         kubectl get priorityclasses | grep -E "high-priority|medium-priority|low-priority"
         echo "✅ PriorityClasses créées"
 
-    - name: Test Module 02 - APF
+    - name: Test Module 02 — APF (PriorityLevels d'abord, FlowSchemas ensuite)
       run: |
         echo "=== Module 02: API Priority & Fairness ==="
-        # APF est activé par défaut depuis K8s 1.20
-        kubectl get flowschemas
-        kubectl get prioritylevelconfigurations
-        
-        # Appliquer nos configs custom
-        kubectl apply --dry-run=server -f 02-api-priority-fairness/manifests/02-priority-level-custom.yaml
-        kubectl apply --dry-run=server -f 02-api-priority-fairness/manifests/01-flow-schema-custom.yaml
-        
+        # PriorityLevels AVANT FlowSchemas (dépendance obligatoire)
         kubectl apply -f 02-api-priority-fairness/manifests/02-priority-level-custom.yaml
+        kubectl get prioritylevelconfigurations | grep -E "demo-priority|demo-restricted"
+        
         kubectl apply -f 02-api-priority-fairness/manifests/01-flow-schema-custom.yaml
-        echo "✅ APF configs appliquées"
+        kubectl get flowschemas | grep -E "demo-workloads|demo-restricted-sa"
+        echo "✅ APF custom OK"
 
     - name: Test Module 03 - Production
       run: |

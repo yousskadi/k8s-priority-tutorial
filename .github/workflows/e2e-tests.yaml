@@ -9,9 +9,11 @@ name: E2E Tests
 on:
   push:
     branches: ["main", "develop"]
+    paths:
+      - "**/*.yaml"
   pull_request:
     branches: ["main"]
-  workflow_dispatch:  # Déclenchement manuel
+  workflow_dispatch:  # déclenchement manuel depuis GitHub Actions UI
 
 jobs:
   e2e-pod-priority:
