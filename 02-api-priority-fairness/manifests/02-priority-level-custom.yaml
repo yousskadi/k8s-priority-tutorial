@@ -21,20 +21,20 @@ spec:
     # Total des seats = somme de tous les nominalConcurrencyShares
     # Seats de ce niveau = (30 / total) * max-requests-inflight
     nominalConcurrencyShares: 30
-
+   
     # Seats qu'on peut PRÊTER aux autres niveaux si on les utilise pas
     lendingLimit: 5
-
+   
     # Seats qu'on peut EMPRUNTER aux autres niveaux si surchargé
     borrowingLimit: 10
-
+   
     limitResponse:
       type: Queue  # met en queue plutôt que rejeter immédiatement
       queuing:
         queues: 16          # nombre de files parallèles (shuffle sharding)
         handSize: 4         # requêtes distribuées dans N queues
         queueLengthLimit: 10  # max requêtes en attente par queue
-
+     
 ---
 # Niveau très restreint pour le SA "restricted-sa"
 # Simule un opérateur qu'on veut fortement limiter
@@ -48,7 +48,7 @@ spec:
   type: Limited
   limited:
     nominalConcurrencyShares: 5  # très peu de seats
-
+  
     limitResponse:
       type: Queue
       queuing:
