@@ -2,12 +2,14 @@
 # 02-priority-level-custom.yaml
 # PriorityLevelConfigurations custom pour nos labs
 #
-# À appliquer AVANT les FlowSchemas qui les référencent
+# A appliquer AVANT les FlowSchemas qui les referencent
+#
+# Champs valides (flowcontrol.apiserver.k8s.io/v1) :
+#   lendablePercent      : % de seats pretables aux autres niveaux
+#   borrowingLimitPercent: % de seats empruntables aux autres niveaux
 # =============================================================
 
 ---
-# Niveau de priorité pour les workloads de démonstration
-# Limité mais avec une queue raisonnable
 apiVersion: flowcontrol.apiserver.k8s.io/v1
 kind: PriorityLevelConfiguration
 metadata:
@@ -17,27 +19,15 @@ metadata:
 spec:
   type: Limited
   limited:
-    # Nombre de "seats" de concurrence relatifs
-    # Total des seats = somme de tous les nominalConcurrencyShares
-    # Seats de ce niveau = (30 / total) * max-requests-inflight
-    assuredConcurrencyShares: 30
-
-    # Seats qu'on peut PRÊTER aux autres niveaux si on les utilise pas
-    #lendingLimit: 5
-
-    # Seats qu'on peut EMPRUNTER aux autres niveaux si surchargé
-    #borrowingLimit: 10
-
+    nominalConcurrencyShares: 30
     limitResponse:
-      type: Queue  # met en queue plutôt que rejeter immédiatement
+      type: Queue
       queuing:
-        queues: 16          # nombre de files parallèles (shuffle sharding)
-        handSize: 4         # requêtes distribuées dans N queues
-        queueLengthLimit: 10  # max requêtes en attente par queue
+        queues: 16
+        handSize: 4
+        queueLengthLimit: 10
 
 ---
-# Niveau très restreint pour le SA "restricted-sa"
-# Simule un opérateur qu'on veut fortement limiter
 apiVersion: flowcontrol.apiserver.k8s.io/v1
 kind: PriorityLevelConfiguration
 metadata:
@@ -47,24 +37,10 @@ metadata:
 spec:
   type: Limited
   limited:
-    assuredConcurrencyShares: 5  # très peu de seats
-
+    nominalConcurrencyShares: 5
     limitResponse:
       type: Queue
       queuing:
         queues: 4
         handSize: 2
-        queueLengthLimit: 5  # rejette rapidement quand surchargé
-
----
-# Exemple de niveau EXEMPT (pour référence — NE PAS utiliser en prod pour tes workloads)
-# Ceci est ce que Kubernetes utilise pour scheduler et controller-manager
-# apiVersion: flowcontrol.apiserver.k8s.io/v1
-# kind: PriorityLevelConfiguration
-# metadata:
-#   name: exempt
-# spec:
-#   type: Exempt
-#   exempt:
-#     nominalConcurrencyShares: 0  # illimité
-#     lendingPercent: 0
+        queueLengthLimit: 5
