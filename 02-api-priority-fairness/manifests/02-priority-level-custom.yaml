@@ -20,13 +20,13 @@ spec:
     # Nombre de "seats" de concurrence relatifs
     # Total des seats = somme de tous les nominalConcurrencyShares
     # Seats de ce niveau = (30 / total) * max-requests-inflight
-    nominalConcurrencyShares: 30
+    assuredConcurrencyShares: 30
 
     # Seats qu'on peut PRÊTER aux autres niveaux si on les utilise pas
-    lendingLimit: 5
+    #lendingLimit: 5
 
     # Seats qu'on peut EMPRUNTER aux autres niveaux si surchargé
-    borrowingLimit: 10
+    #borrowingLimit: 10
 
     limitResponse:
       type: Queue  # met en queue plutôt que rejeter immédiatement
@@ -47,7 +47,7 @@ metadata:
 spec:
   type: Limited
   limited:
-    nominalConcurrencyShares: 5  # très peu de seats
+    assuredConcurrencyShares: 5  # très peu de seats
 
     limitResponse:
       type: Queue
