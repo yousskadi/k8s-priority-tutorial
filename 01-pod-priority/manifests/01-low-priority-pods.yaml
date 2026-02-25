@@ -1,0 +1,50 @@
+# =============================================================
+# 01-low-priority-pods.yaml
+# Des pods batch qui consomment les ressources du cluster
+# Ils SERONT éjectés quand un pod high-priority arrive
+# =============================================================
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: batch-job-filler
+  namespace: default
+  labels:
+    app: batch-job-filler
+    tier: batch
+    app.kubernetes.io/part-of: priority-tutorial
+spec:
+  replicas: 10  # Beaucoup de replicas pour saturer le cluster
+  selector:
+    matchLabels:
+      app: batch-job-filler
+  template:
+    metadata:
+      labels:
+        app: batch-job-filler
+        tier: batch
+    spec:
+      priorityClassName: low-priority  # ← priorité basse
+
+      # Garantit que ces pods consomment vraiment des ressources
+      containers:
+      - name: busybox
+        image: busybox:1.36
+        command: ["sh", "-c", "while true; do echo 'batch running'; sleep 10; done"]
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "256Mi"
+            cpu: "250m"
+
+      # Pas de tolerations système → schedulé sur workers normaux
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: DoesNotExist

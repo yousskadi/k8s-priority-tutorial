@@ -1,0 +1,91 @@
+# =============================================================
+# 06-apf-priority-levels.yaml
+# PriorityLevelConfigurations de production
+#
+# À APPLIQUER EN PREMIER (avant les FlowSchemas)
+# =============================================================
+
+---
+# prod-high : Workloads de production
+# Beaucoup de seats, peu de throttling
+# Peut emprunter des seats aux autres niveaux
+apiVersion: flowcontrol.apiserver.k8s.io/v1
+kind: PriorityLevelConfiguration
+metadata:
+  name: prod-high
+  labels:
+    app.kubernetes.io/part-of: priority-tutorial
+    tier: production
+spec:
+  type: Limited
+  limited:
+    # 40 shares → ~40% des seats disponibles
+    # (à ajuster selon le nb total de niveaux dans ton cluster)
+    nominalConcurrencyShares: 40
+
+    # Peut emprunter 20 seats supplémentaires si disponibles
+    borrowingLimitPercent: 25
+
+    # Prête peu → garde ses seats pour lui
+    lendingLimitPercent: 10
+
+    limitResponse:
+      type: Queue
+      queuing:
+        queues: 32         # Plus de queues = moins de collision (shuffle sharding)
+        handSize: 6
+        queueLengthLimit: 50  # Tolère une file d'attente plus longue
+
+---
+# staging-std : Workloads de staging
+# Priorité moyenne
+apiVersion: flowcontrol.apiserver.k8s.io/v1
+kind: PriorityLevelConfiguration
+metadata:
+  name: staging-std
+  labels:
+    app.kubernetes.io/part-of: priority-tutorial
+    tier: staging
+spec:
+  type: Limited
+  limited:
+    nominalConcurrencyShares: 20
+
+    borrowingLimitPercent: 15
+    lendingLimitPercent: 30  # Prête plus — staging peut céder ses seats
+
+    limitResponse:
+      type: Queue
+      queuing:
+        queues: 16
+        handSize: 4
+        queueLengthLimit: 25
+
+---
+# batch-low : Jobs batch
+# Peu de seats, throttling agressif
+# Ces requêtes attendent si prod ou staging ont besoin de leurs seats
+apiVersion: flowcontrol.apiserver.k8s.io/v1
+kind: PriorityLevelConfiguration
+metadata:
+  name: batch-low
+  labels:
+    app.kubernetes.io/part-of: priority-tutorial
+    tier: batch
+spec:
+  type: Limited
+  limited:
+    nominalConcurrencyShares: 10  # Peu de seats
+
+    # Peut emprunter un peu si personne d'autre n'a besoin
+    borrowingLimitPercent: 20
+
+    # Prête la majorité de ses seats quand non utilisés
+    lendingLimitPercent: 80
+
+    limitResponse:
+      type: Queue
+      queuing:
+        queues: 8
+        handSize: 3
+        queueLengthLimit: 10  # File courte → rejet rapide sous pression

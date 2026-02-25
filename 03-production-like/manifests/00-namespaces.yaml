@@ -1,0 +1,83 @@
+# =============================================================
+# 00-namespaces.yaml
+# Setup multi-tenant : 3 namespaces avec labels métier
+# =============================================================
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: production
+  labels:
+    environment: production
+    tier: critical
+    app.kubernetes.io/part-of: priority-tutorial
+  annotations:
+    description: "Workloads de production — SLA élevé"
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: staging
+  labels:
+    environment: staging
+    tier: standard
+    app.kubernetes.io/part-of: priority-tutorial
+  annotations:
+    description: "Workloads de staging — pas de SLA strict"
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: batch
+  labels:
+    environment: batch
+    tier: low
+    app.kubernetes.io/part-of: priority-tutorial
+  annotations:
+    description: "Jobs batch et pipelines — peuvent être interrompus"
+
+---
+# ResourceQuotas pour éviter qu'un namespace prenne tout le cluster
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: production-quota
+  namespace: production
+spec:
+  hard:
+    requests.cpu: "8"
+    requests.memory: "16Gi"
+    limits.cpu: "16"
+    limits.memory: "32Gi"
+    pods: "50"
+
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: staging-quota
+  namespace: staging
+spec:
+  hard:
+    requests.cpu: "4"
+    requests.memory: "8Gi"
+    limits.cpu: "8"
+    limits.memory: "16Gi"
+    pods: "20"
+
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: batch-quota
+  namespace: batch
+spec:
+  hard:
+    requests.cpu: "4"
+    requests.memory: "8Gi"
+    limits.cpu: "8"
+    limits.memory: "16Gi"
+    pods: "100"

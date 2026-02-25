@@ -1,0 +1,166 @@
+# =============================================================
+# 03-test-throttling.yaml
+# Pods pour tester le throttling APF
+# Simule des SA qui font beaucoup de requêtes à l'API server
+# =============================================================
+
+---
+# Namespace de test
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: demo
+  labels:
+    app.kubernetes.io/part-of: priority-tutorial
+
+---
+# ServiceAccount normal (routé vers demo-priority)
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: demo-sa
+  namespace: demo
+  labels:
+    app.kubernetes.io/part-of: priority-tutorial
+
+---
+# ServiceAccount restreint (routé vers demo-restricted)
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: restricted-sa
+  namespace: demo
+  labels:
+    app.kubernetes.io/part-of: priority-tutorial
+
+---
+# RBAC pour demo-sa : peut lire les ressources
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: demo-reader
+  labels:
+    app.kubernetes.io/part-of: priority-tutorial
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services", "endpoints", "configmaps"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: demo-sa-reader
+  labels:
+    app.kubernetes.io/part-of: priority-tutorial
+subjects:
+- kind: ServiceAccount
+  name: demo-sa
+  namespace: demo
+- kind: ServiceAccount
+  name: restricted-sa
+  namespace: demo
+roleRef:
+  kind: ClusterRole
+  name: demo-reader
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# Pod qui génère des requêtes API (simule un operator)
+# Utilise le demo-sa → routé vers demo-priority
+apiVersion: v1
+kind: Pod
+metadata:
+  name: api-load-generator-normal
+  namespace: demo
+  labels:
+    app: api-load-generator
+    sa-type: normal
+    app.kubernetes.io/part-of: priority-tutorial
+spec:
+  serviceAccountName: demo-sa
+  containers:
+  - name: kubectl-loop
+    image: bitnami/kubectl:latest
+    command:
+    - sh
+    - -c
+    - |
+      echo "=== API Load Generator (Normal SA) ==="
+      echo "FlowSchema: demo-workloads → demo-priority"
+      echo "Démarrage des requêtes en boucle..."
+      
+      COUNT=0
+      ERRORS=0
+      while true; do
+        # Faire une requête à l'API
+        if kubectl get pods --all-namespaces > /dev/null 2>&1; then
+          COUNT=$((COUNT + 1))
+        else
+          ERRORS=$((ERRORS + 1))
+          echo "[$(date)] ERREUR (429?) - Total erreurs: $ERRORS"
+        fi
+        
+        # Toutes les 10 requêtes, afficher un résumé
+        if [ $((COUNT % 10)) -eq 0 ] && [ $COUNT -gt 0 ]; then
+          echo "[$(date)] Requêtes OK: $COUNT | Erreurs: $ERRORS"
+        fi
+        
+        # Pas de sleep → génère des requêtes aussi vite que possible
+        sleep 0.1
+      done
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "50m"
+      limits:
+        memory: "128Mi"
+        cpu: "100m"
+  restartPolicy: Always
+
+---
+# Pod qui génère des requêtes avec le SA restreint
+apiVersion: v1
+kind: Pod
+metadata:
+  name: api-load-generator-restricted
+  namespace: demo
+  labels:
+    app: api-load-generator
+    sa-type: restricted
+    app.kubernetes.io/part-of: priority-tutorial
+spec:
+  serviceAccountName: restricted-sa
+  containers:
+  - name: kubectl-loop
+    image: bitnami/kubectl:latest
+    command:
+    - sh
+    - -c
+    - |
+      echo "=== API Load Generator (Restricted SA) ==="
+      echo "FlowSchema: demo-restricted-sa → demo-restricted"
+      echo "Démarrage des requêtes en boucle..."
+      
+      COUNT=0
+      ERRORS=0
+      while true; do
+        if kubectl get pods --all-namespaces > /dev/null 2>&1; then
+          COUNT=$((COUNT + 1))
+        else
+          ERRORS=$((ERRORS + 1))
+          echo "[$(date)] THROTTLÉ! Total throttles: $ERRORS / Total OK: $COUNT"
+        fi
+        sleep 0.05  # plus agressif
+      done
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "50m"
+      limits:
+        memory: "128Mi"
+        cpu: "100m"
+  restartPolicy: Always

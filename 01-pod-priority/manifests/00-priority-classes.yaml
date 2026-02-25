@@ -1,0 +1,57 @@
+# =============================================================
+# 00-priority-classes.yaml
+# Définit les 3 niveaux de priorité pour nos workloads
+# =============================================================
+
+---
+# NIVEAU 3 — Critique (ex: payment, auth)
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: high-priority
+  labels:
+    app.kubernetes.io/part-of: priority-tutorial
+value: 1000000
+globalDefault: false
+preemptionPolicy: PreemptLowerPriority  # peut éjecter les pods moins prioritaires
+description: "Workloads critiques — ne jamais perturber en prod"
+
+---
+# NIVEAU 2 — Important (ex: monitoring, API)
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: medium-priority
+  labels:
+    app.kubernetes.io/part-of: priority-tutorial
+value: 500000
+globalDefault: false
+preemptionPolicy: PreemptLowerPriority
+description: "Workloads importants — monitoring, API secondaires"
+
+---
+# NIVEAU 1 — Best-effort (ex: batch, jobs)
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: low-priority
+  labels:
+    app.kubernetes.io/part-of: priority-tutorial
+value: 100000
+globalDefault: true  # appliqué aux pods sans priorityClassName
+preemptionPolicy: PreemptLowerPriority
+description: "Workloads batch et jobs — peuvent être éjectés"
+
+---
+# NIVEAU spécial — Haute priorité mais sans préemption
+# Utile pour des jobs qui ne doivent pas perturber les autres
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: high-priority-no-preempt
+  labels:
+    app.kubernetes.io/part-of: priority-tutorial
+value: 900000
+globalDefault: false
+preemptionPolicy: Never  # attend dans la queue sans éjecter personne
+description: "Haute priorité dans la queue mais sans préemption"

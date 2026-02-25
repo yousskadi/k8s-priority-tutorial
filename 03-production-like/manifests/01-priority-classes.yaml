@@ -1,0 +1,91 @@
+# =============================================================
+# 01-priority-classes.yaml
+# PriorityClasses alignées avec les SLAs métier
+# Convention de nommage : <tier>[-<modifier>]
+# =============================================================
+
+---
+# TIER 1 : Services critiques business (SLA 99.99%)
+# Payment, auth, core API
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: critical
+  labels:
+    app.kubernetes.io/part-of: priority-tutorial
+    sla-tier: "1"
+value: 1000000
+globalDefault: false
+preemptionPolicy: PreemptLowerPriority
+description: |
+  Workloads critiques business (paiement, authentification).
+  Peut préempter tous les tiers inférieurs.
+  SLA : 99.99% — ne jamais down volontairement.
+
+---
+# TIER 2 : Services importants (SLA 99.9%)
+# API secondaires, services internes, monitoring
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: high
+  labels:
+    app.kubernetes.io/part-of: priority-tutorial
+    sla-tier: "2"
+value: 800000
+globalDefault: false
+preemptionPolicy: PreemptLowerPriority
+description: |
+  Workloads importants. Peut préempter standard et batch.
+  SLA : 99.9%
+
+---
+# TIER 3 : Services standard (SLA 99%)
+# Apps non-critiques, staging
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: standard
+  labels:
+    app.kubernetes.io/part-of: priority-tutorial
+    sla-tier: "3"
+value: 500000
+globalDefault: true  # défaut pour les pods sans priorityClassName
+preemptionPolicy: PreemptLowerPriority
+description: |
+  Workloads standard. Peut préempter les batch jobs.
+  SLA : 99% — défaut pour tous les pods.
+
+---
+# TIER 4 : Jobs batch (best-effort)
+# Pipelines de données, jobs de nuit, ML training
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: batch
+  labels:
+    app.kubernetes.io/part-of: priority-tutorial
+    sla-tier: "4"
+value: 100000
+globalDefault: false
+preemptionPolicy: PreemptLowerPriority
+description: |
+  Jobs batch et best-effort. SERONT éjectés si besoin.
+  Pas de SLA — doit être idempotent et tolérant aux interruptions.
+
+---
+# TIER spécial : développement local / expérimental
+# Priorité très basse — premier à être éjecté
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: development
+  labels:
+    app.kubernetes.io/part-of: priority-tutorial
+    sla-tier: "5"
+value: 10000
+globalDefault: false
+preemptionPolicy: Never  # ne préempte rien, attend
+description: |
+  Workloads de développement. Ne préempte jamais.
+  Sera éjecté en premier lors d'une pression ressource.

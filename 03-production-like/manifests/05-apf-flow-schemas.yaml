@@ -1,0 +1,107 @@
+# =============================================================
+# 05-apf-flow-schemas.yaml
+# FlowSchemas de production — APPLIQUER APRÈS 06-apf-priority-levels.yaml
+#
+# Ordre de matching (matchingPrecedence, plus petit = premier) :
+# 1     → exempt (système, ne pas toucher)
+# 2     → probes (ne pas toucher)
+# 100   → system-leader-election (ne pas toucher)
+# 1000  → production-critical (NOTRE règle)
+# 3000  → staging-standard (NOTRE règle)
+# 5000  → batch-restricted (NOTRE règle)
+# 9000  → system-service-accounts (système, ne pas toucher)
+# 9900  → global-default (système, ne pas toucher)
+# 10000 → catch-all (filet de sécurité)
+# =============================================================
+
+---
+# RÈGLE 1 : Namespace production → priorité élevée
+# Toutes les requêtes depuis des ServiceAccounts de production
+# sont routées vers prod-high (très peu de throttling)
+apiVersion: flowcontrol.apiserver.k8s.io/v1
+kind: FlowSchema
+metadata:
+  name: production-critical
+  labels:
+    app.kubernetes.io/part-of: priority-tutorial
+spec:
+  priorityLevelConfiguration:
+    name: prod-high
+
+  matchingPrecedence: 1000  # Matché tôt (avant les règles génériques)
+
+  # Distingue les flows par namespace — fair-queueing entre apps de prod
+  distinguisherMethod:
+    type: ByNamespace
+
+  rules:
+  # Tous les ServiceAccounts du namespace production
+  - subjects:
+    - kind: ServiceAccount
+      serviceAccount:
+        namespace: production
+        name: "*"
+    resourceRules:
+    - verbs: ["*"]
+      apiGroups: ["*"]
+      resources: ["*"]
+    nonResourceRules:
+    - verbs: ["*"]
+      nonResourceURLs: ["*"]
+
+---
+# RÈGLE 2 : Namespace staging → priorité standard
+apiVersion: flowcontrol.apiserver.k8s.io/v1
+kind: FlowSchema
+metadata:
+  name: staging-standard
+  labels:
+    app.kubernetes.io/part-of: priority-tutorial
+spec:
+  priorityLevelConfiguration:
+    name: staging-std
+
+  matchingPrecedence: 3000
+
+  distinguisherMethod:
+    type: ByNamespace
+
+  rules:
+  - subjects:
+    - kind: ServiceAccount
+      serviceAccount:
+        namespace: staging
+        name: "*"
+    resourceRules:
+    - verbs: ["*"]
+      apiGroups: ["*"]
+      resources: ["*"]
+
+---
+# RÈGLE 3 : Namespace batch → priorité basse
+# Ces requêtes SERONT throttlées sous pression
+apiVersion: flowcontrol.apiserver.k8s.io/v1
+kind: FlowSchema
+metadata:
+  name: batch-restricted
+  labels:
+    app.kubernetes.io/part-of: priority-tutorial
+spec:
+  priorityLevelConfiguration:
+    name: batch-low
+
+  matchingPrecedence: 5000
+
+  distinguisherMethod:
+    type: ByUser  # distinguer par SA pour isoler les mauvais acteurs
+
+  rules:
+  - subjects:
+    - kind: ServiceAccount
+      serviceAccount:
+        namespace: batch
+        name: "*"
+    resourceRules:
+    - verbs: ["*"]
+      apiGroups: ["*"]
+      resources: ["*"]

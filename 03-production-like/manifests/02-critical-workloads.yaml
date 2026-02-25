@@ -1,0 +1,150 @@
+# =============================================================
+# 02-critical-workloads.yaml
+# Workloads critiques en production
+# Avec PDB, priorityClass, et bonnes pratiques
+# =============================================================
+
+---
+# ServiceAccount pour les apps de production
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: production-sa
+  namespace: production
+  labels:
+    app.kubernetes.io/part-of: priority-tutorial
+
+---
+# Payment API — Service le plus critique
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-api
+  namespace: production
+  labels:
+    app: payment-api
+    tier: critical
+    app.kubernetes.io/part-of: priority-tutorial
+spec:
+  replicas: 3  # 3 replicas pour la HA
+  selector:
+    matchLabels:
+      app: payment-api
+  # Stratégie de mise à jour prudente pour les workloads critiques
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0    # JAMAIS de downtime
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: payment-api
+        tier: critical
+    spec:
+      serviceAccountName: production-sa
+      priorityClassName: critical  # ← TIER 1
+
+      # Distribution sur plusieurs nœuds (anti-affinity)
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values: ["payment-api"]
+            topologyKey: kubernetes.io/hostname
+
+      containers:
+      - name: payment-api
+        image: nginx:1.25-alpine
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 15
+          periodSeconds: 10
+
+      terminationGracePeriodSeconds: 60  # temps pour finir les transactions
+
+---
+# PodDisruptionBudget — protège payment-api des evictions volontaires
+# (node drain, rolling updates d'autres apps, etc.)
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: payment-api-pdb
+  namespace: production
+  labels:
+    app.kubernetes.io/part-of: priority-tutorial
+spec:
+  # Toujours au moins 2 pods disponibles (sur 3 replicas)
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: payment-api
+
+---
+# Auth Service — critique aussi
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  namespace: production
+  labels:
+    app: auth-service
+    tier: critical
+    app.kubernetes.io/part-of: priority-tutorial
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: auth-service
+  template:
+    metadata:
+      labels:
+        app: auth-service
+        tier: critical
+    spec:
+      serviceAccountName: production-sa
+      priorityClassName: critical  # ← TIER 1
+
+      containers:
+      - name: auth
+        image: nginx:1.25-alpine
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "250m"
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: auth-service-pdb
+  namespace: production
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: auth-service

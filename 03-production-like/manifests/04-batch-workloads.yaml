@@ -1,0 +1,93 @@
+# =============================================================
+# 04-batch-workloads.yaml
+# Jobs batch — seront éjectés si besoin par les workloads critiques
+# Doivent être idempotents et tolérants aux interruptions
+# =============================================================
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: batch-sa
+  namespace: batch
+  labels:
+    app.kubernetes.io/part-of: priority-tutorial
+
+---
+# Pipeline de données — peut être interrompu et redémarré
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: data-pipeline
+  namespace: batch
+  labels:
+    app: data-pipeline
+    tier: batch
+    app.kubernetes.io/part-of: priority-tutorial
+spec:
+  replicas: 5  # Beaucoup de replicas pour saturer le cluster
+  selector:
+    matchLabels:
+      app: data-pipeline
+  template:
+    metadata:
+      labels:
+        app: data-pipeline
+        tier: batch
+    spec:
+      serviceAccountName: batch-sa
+      priorityClassName: batch  # ← TIER 4 — sera éjecté en premier
+
+      # Important : les jobs batch doivent gérer l'interruption proprement
+      terminationGracePeriodSeconds: 30  # temps pour sauvegarder l'état
+
+      containers:
+      - name: pipeline
+        image: busybox:1.36
+        command:
+        - sh
+        - -c
+        - |
+          # Simuler un pipeline qui sauvegarde son état
+          CHECKPOINT_FILE="/tmp/checkpoint"
+          
+          # Reprendre depuis le checkpoint si disponible
+          if [ -f "$CHECKPOINT_FILE" ]; then
+            STEP=$(cat "$CHECKPOINT_FILE")
+            echo "Reprise depuis le step $STEP"
+          else
+            STEP=0
+          fi
+          
+          # Gérer le signal SIGTERM (préemption)
+          trap 'echo "SIGTERM reçu - sauvegarde step $STEP"; echo $STEP > $CHECKPOINT_FILE; exit 0' TERM
+          
+          while true; do
+            STEP=$((STEP + 1))
+            echo "[$(date)] Traitement step $STEP..."
+            sleep 5
+            
+            # Sauvegarder périodiquement
+            if [ $((STEP % 10)) -eq 0 ]; then
+              echo $STEP > "$CHECKPOINT_FILE"
+              echo "[$(date)] Checkpoint sauvé: step $STEP"
+            fi
+          done
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        # Volume pour sauvegarder le checkpoint
+        volumeMounts:
+        - name: checkpoint-volume
+          mountPath: /tmp
+
+      volumes:
+      - name: checkpoint-volume
+        emptyDir: {}
+
+      # Pas d'anti-affinity — on veut qu'ils puissent être packés
+      # pour faciliter l'éjection de nœuds entiers si besoin

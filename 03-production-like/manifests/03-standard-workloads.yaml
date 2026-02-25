@@ -1,0 +1,46 @@
+# =============================================================
+# 03-standard-workloads.yaml
+# Workloads standard en staging
+# =============================================================
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: staging-sa
+  namespace: staging
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-api-staging
+  namespace: staging
+  labels:
+    app: payment-api
+    tier: standard
+    app.kubernetes.io/part-of: priority-tutorial
+spec:
+  replicas: 1  # 1 seul replica en staging
+  selector:
+    matchLabels:
+      app: payment-api
+  template:
+    metadata:
+      labels:
+        app: payment-api
+        tier: standard
+    spec:
+      serviceAccountName: staging-sa
+      priorityClassName: standard  # ← TIER 3 (pas critique)
+
+      containers:
+      - name: payment-api
+        image: nginx:1.25-alpine
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"

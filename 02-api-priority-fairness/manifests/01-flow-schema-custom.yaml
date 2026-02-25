@@ -1,0 +1,75 @@
+# =============================================================
+# 01-flow-schema-custom.yaml
+# FlowSchema custom qui route les ServiceAccounts du namespace "demo"
+# vers notre PriorityLevel custom
+#
+# ORDRE DES LABS : appliquer 02-priority-level-custom.yaml D'ABORD
+# =============================================================
+
+---
+# FlowSchema pour les workloads du namespace "demo"
+# Toutes les requêtes des ServiceAccounts de "demo" → demo-priority
+apiVersion: flowcontrol.apiserver.k8s.io/v1
+kind: FlowSchema
+metadata:
+  name: demo-workloads
+  labels:
+    app.kubernetes.io/part-of: priority-tutorial
+spec:
+  # Référence vers notre PriorityLevel custom
+  priorityLevelConfiguration:
+    name: demo-priority
+
+  # Valeur basse = matché AVANT les schemas avec valeur haute
+  # Ici : matché avant global-default (9900) et catch-all (10000)
+  # mais après les schemas système
+  matchingPrecedence: 5000
+
+  # Distingue les flows par namespace + serviceaccount
+  # Permet un fair-queueing par entité
+  distinguisherMethod:
+    type: ByNamespace
+
+  rules:
+  # Tous les ServiceAccounts du namespace "demo"
+  - subjects:
+    - kind: ServiceAccount
+      serviceAccount:
+        namespace: demo
+        name: "*"  # tous les SA du namespace
+    resourceRules:
+    - verbs: ["*"]
+      apiGroups: ["*"]
+      resources: ["*"]
+    nonResourceRules:
+    - verbs: ["*"]
+      nonResourceURLs: ["*"]
+
+---
+# FlowSchema pour rejeter explicitement un SA spécifique (démonstration)
+# Cas d'usage : isoler un opérateur mal configuré
+apiVersion: flowcontrol.apiserver.k8s.io/v1
+kind: FlowSchema
+metadata:
+  name: demo-restricted-sa
+  labels:
+    app.kubernetes.io/part-of: priority-tutorial
+spec:
+  priorityLevelConfiguration:
+    name: demo-restricted  # PriorityLevel très limité
+
+  matchingPrecedence: 4999  # matché AVANT demo-workloads pour ce SA
+
+  distinguisherMethod:
+    type: ByUser
+
+  rules:
+  - subjects:
+    - kind: ServiceAccount
+      serviceAccount:
+        namespace: demo
+        name: restricted-sa  # SA spécifique à limiter fortement
+    resourceRules:
+    - verbs: ["list", "watch", "get"]  # lecture seulement
+      apiGroups: ["*"]
+      resources: ["*"]

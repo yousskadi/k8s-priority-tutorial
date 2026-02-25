@@ -1,0 +1,49 @@
+# =============================================================
+# 03-guaranteed-system-pod.yaml
+# Pod avec haute priorité mais preemptionPolicy: Never
+# Il sera schedulé en PRIORITÉ dans la queue mais n'éjectera personne
+# Cas d'usage : jobs importants qui ne doivent pas perturber les autres
+# =============================================================
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: reporting-job-no-preempt
+  namespace: default
+  labels:
+    app: reporting-job
+    tier: important
+    app.kubernetes.io/part-of: priority-tutorial
+  annotations:
+    description: |
+      Job de reporting important (haute priorité dans la queue)
+      mais ne préempte pas → attend que des ressources se libèrent.
+      Différence : sera schedulé AVANT les low-priority pods dans la file
+      mais n'éjectera pas les pods déjà running.
+spec:
+  priorityClassName: high-priority-no-preempt  # preemptionPolicy: Never
+
+  containers:
+  - name: reporting
+    image: busybox:1.36
+    command:
+    - sh
+    - -c
+    - |
+      echo "=== Reporting job started ==="
+      echo "Priority: high-priority-no-preempt"
+      echo "preemptionPolicy: Never"
+      echo "Je suis dans la queue avec haute priorité"
+      echo "mais je n'éjecte personne !"
+      sleep 3600
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "100m"
+      limits:
+        memory: "128Mi"
+        cpu: "100m"
+
+  restartPolicy: Never
+  terminationGracePeriodSeconds: 10

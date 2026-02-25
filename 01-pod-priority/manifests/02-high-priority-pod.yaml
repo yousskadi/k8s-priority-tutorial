@@ -1,0 +1,51 @@
+# =============================================================
+# 02-high-priority-pod.yaml
+# Pod critique qui va DÉCLENCHER la préemption
+# Kubernetes va éjecter des pods low-priority pour lui faire de la place
+# =============================================================
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: payment-api-critical
+  namespace: default
+  labels:
+    app: payment-api
+    tier: critical
+    app.kubernetes.io/part-of: priority-tutorial
+  annotations:
+    description: "Simule un pod de paiement critique qui doit toujours tourner"
+spec:
+  priorityClassName: high-priority  # ← HAUTE priorité → va déclencher la préemption
+
+  containers:
+  - name: payment-api
+    image: nginx:1.25-alpine
+    ports:
+    - containerPort: 80
+    resources:
+      requests:
+        memory: "512Mi"   # Demande beaucoup — nécessite l'éjection de pods batch
+        cpu: "500m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+    readinessProbe:
+      httpGet:
+        path: /
+        port: 80
+      initialDelaySeconds: 5
+      periodSeconds: 5
+
+  # Pas de préférence de nœud — le scheduler choisira après préemption
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: node-role.kubernetes.io/control-plane
+            operator: DoesNotExist
+
+  # Graceful termination — important pour la prod
+  terminationGracePeriodSeconds: 30

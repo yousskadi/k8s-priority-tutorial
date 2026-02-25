@@ -1,0 +1,70 @@
+# =============================================================
+# 02-priority-level-custom.yaml
+# PriorityLevelConfigurations custom pour nos labs
+#
+# À appliquer AVANT les FlowSchemas qui les référencent
+# =============================================================
+
+---
+# Niveau de priorité pour les workloads de démonstration
+# Limité mais avec une queue raisonnable
+apiVersion: flowcontrol.apiserver.k8s.io/v1
+kind: PriorityLevelConfiguration
+metadata:
+  name: demo-priority
+  labels:
+    app.kubernetes.io/part-of: priority-tutorial
+spec:
+  type: Limited
+  limited:
+    # Nombre de "seats" de concurrence relatifs
+    # Total des seats = somme de tous les nominalConcurrencyShares
+    # Seats de ce niveau = (30 / total) * max-requests-inflight
+    nominalConcurrencyShares: 30
+
+    # Seats qu'on peut PRÊTER aux autres niveaux si on les utilise pas
+    lendingLimit: 5
+
+    # Seats qu'on peut EMPRUNTER aux autres niveaux si surchargé
+    borrowingLimit: 10
+
+    limitResponse:
+      type: Queue  # met en queue plutôt que rejeter immédiatement
+      queuing:
+        queues: 16          # nombre de files parallèles (shuffle sharding)
+        handSize: 4         # requêtes distribuées dans N queues
+        queueLengthLimit: 10  # max requêtes en attente par queue
+
+---
+# Niveau très restreint pour le SA "restricted-sa"
+# Simule un opérateur qu'on veut fortement limiter
+apiVersion: flowcontrol.apiserver.k8s.io/v1
+kind: PriorityLevelConfiguration
+metadata:
+  name: demo-restricted
+  labels:
+    app.kubernetes.io/part-of: priority-tutorial
+spec:
+  type: Limited
+  limited:
+    nominalConcurrencyShares: 5  # très peu de seats
+
+    limitResponse:
+      type: Queue
+      queuing:
+        queues: 4
+        handSize: 2
+        queueLengthLimit: 5  # rejette rapidement quand surchargé
+
+---
+# Exemple de niveau EXEMPT (pour référence — NE PAS utiliser en prod pour tes workloads)
+# Ceci est ce que Kubernetes utilise pour scheduler et controller-manager
+# apiVersion: flowcontrol.apiserver.k8s.io/v1
+# kind: PriorityLevelConfiguration
+# metadata:
+#   name: exempt
+# spec:
+#   type: Exempt
+#   exempt:
+#     nominalConcurrencyShares: 0  # illimité
+#     lendingPercent: 0
