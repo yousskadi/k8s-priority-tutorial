@@ -32,6 +32,7 @@ jobs:
         find . -name "*.yaml" \
           -not -path "./.git/*" \
           -not -path "./.github/*" \
+          -not -name ".yamllint.yaml" \
           | xargs yamllint -c .yamllint.yaml
 
     - name: Run yamllint
