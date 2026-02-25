@@ -92,7 +92,6 @@ spec:
       echo "=== API Load Generator (Normal SA) ==="
       echo "FlowSchema: demo-workloads → demo-priority"
       echo "Démarrage des requêtes en boucle..."
-      
       COUNT=0
       ERRORS=0
       while true; do
@@ -103,12 +102,10 @@ spec:
           ERRORS=$((ERRORS + 1))
           echo "[$(date)] ERREUR (429?) - Total erreurs: $ERRORS"
         fi
-        
         # Toutes les 10 requêtes, afficher un résumé
         if [ $((COUNT % 10)) -eq 0 ] && [ $COUNT -gt 0 ]; then
           echo "[$(date)] Requêtes OK: $COUNT | Erreurs: $ERRORS"
         fi
-        
         # Pas de sleep → génère des requêtes aussi vite que possible
         sleep 0.1
       done
@@ -144,7 +141,6 @@ spec:
       echo "=== API Load Generator (Restricted SA) ==="
       echo "FlowSchema: demo-restricted-sa → demo-restricted"
       echo "Démarrage des requêtes en boucle..."
-      
       COUNT=0
       ERRORS=0
       while true; do

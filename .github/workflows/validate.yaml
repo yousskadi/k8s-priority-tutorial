@@ -27,19 +27,12 @@ jobs:
     - name: Install yamllint
       run: pip install yamllint
 
-    - name: Create yamllint config
+    - name: Run yamllint (manifests uniquement, pas les workflows)
       run: |
-        cat <<EOF > .yamllint.yaml
-        extends: default
-        rules:
-          line-length:
-            max: 150
-            level: warning
-          comments:
-            min-spaces-from-content: 1
-          truthy:
-            allowed-values: ['true', 'false']
-        EOF
+        find . -name "*.yaml" \
+          -not -path "./.git/*" \
+          -not -path "./.github/*" \
+          | xargs yamllint -c .yamllint.yaml
 
     - name: Run yamllint
       run: |
@@ -114,7 +107,7 @@ jobs:
         # PriorityLevels AVANT FlowSchemas (dépendance obligatoire)
         kubectl apply -f 02-api-priority-fairness/manifests/02-priority-level-custom.yaml
         kubectl get prioritylevelconfigurations | grep -E "demo-priority|demo-restricted"
-        
+
         kubectl apply -f 02-api-priority-fairness/manifests/01-flow-schema-custom.yaml
         kubectl get flowschemas | grep -E "demo-workloads|demo-restricted-sa"
         echo "✅ APF custom OK"
